@@ -1,0 +1,12 @@
+.ipynb_checkpoints
+DIAS_Attributes_Values_2017.csv
+DIAS_Information_Levels_Attributes_2017_Komplett.csv
+Udacity_AZDIAS_052018.csv
+Udacity_CUSTOMERS_052018.csv
+Udacity_MAILOUT_052018_TEST.csv
+Udacity_MAILOUT_052018_TRAIN.csv
+analysis
+datasets
+
+#to be added soon - 19th October 2020
+0_dataset_eda_and_etl.ipynb
