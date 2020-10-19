@@ -31,6 +31,7 @@ The following resources are therefore, not provided and would need to be accesse
 
 The order of notebooks to follow is:
 
+- 0_dataset_eda_and_etl.ipynb - CURRENTLY BEING REFACTORED
 - TO BE ADDED
 
 Notebooks were run on a local windows 10 machine with 16GB of RAM and an Intel Core i5-3570k, 3.4GHz CPU. 
