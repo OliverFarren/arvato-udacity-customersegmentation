@@ -1,12 +1,13 @@
 import numpy as np
 import pandas as pd
 import math
+from collections import namedtuple
 
 import config
 import verbosity as v
 import pickler
 
-def unknown_to_nan(df,verbosity=v.NONE):
+def unknown_to_nan(df,vp=None):
     '''Takes azdias style dataframe as input and returns with unknowns converted to NaN'''
     
     def _get_features_to_change():
@@ -52,7 +53,9 @@ def unknown_to_nan(df,verbosity=v.NONE):
     #############################################
     # Main function block
     
-    vp = v.VerbosityPrinter(verbosity)
+    if vp == None:
+        vp = v.VerbosityPrinter(v.NONE)
+        
     azdias_analysis = pd.read_csv(config.analysis_dir + '/azdias_analysis.csv',sep=',',header=0)
     
     vp.low('Running unknown_to_nan...')
@@ -77,11 +80,13 @@ def unknown_to_nan(df,verbosity=v.NONE):
     return(df_clean)
 
 
-def onehot_encode(series,*,min_value=0,max_value=1,verbosity=v.NONE):
+def onehot_encode(series,*,min_value=0,max_value=1,vp=None):
     '''Take a pandas series and return a onehot encoded dataframe'''
 
-    vp = v.VerbosityPrinter(verbosity)
-    vp.low('Running onehot_encoder...')
+    if vp == None:
+        vp = v.VerbosityPrinter(v.NONE)
+    
+    vp.high('Running onehot_encoder...')
     
     values = series.dropna().unique()
     
@@ -94,13 +99,14 @@ def onehot_encode(series,*,min_value=0,max_value=1,verbosity=v.NONE):
         
         vp.high(col_enc)
         
-    vp.low('Finished onehot_encoder.')
+    vp.high('Finished onehot_encoder.')
     return(df)
 
 
-def onehot_encode_df(df,verbosity=v.NONE):
+def onehot_encode_df(df,vp=None):
     
-    vp = v.VerbosityPrinter(verbosity)
+    if vp == None:
+        vp = v.VerbosityPrinter(v.NONE)
     
     vp.low('Running onehot_encode_df...')
     
@@ -108,7 +114,7 @@ def onehot_encode_df(df,verbosity=v.NONE):
     
     for fe in fe_to_oh:
         if fe in df.columns:
-            series_oh = onehot_encode(df[fe],verbosity=verbosity)
+            series_oh = onehot_encode(df[fe],vp=vp)
             df = pd.concat([df,series_oh],axis=1)
             df = df.drop(fe,axis=1)
     
@@ -116,7 +122,7 @@ def onehot_encode_df(df,verbosity=v.NONE):
     
     return(df)
 
-def split_cameo_deuintl_2015(df_clean,verbosity=v.NONE):
+def split_cameo_deuintl_2015(df_clean,*,vp=None):
     '''
     Split the CAEMO_DEUINTL_2015 feature into two.
     
@@ -126,7 +132,8 @@ def split_cameo_deuintl_2015(df_clean,verbosity=v.NONE):
     Returns a dataframe of the two new features
     '''
     
-    vp = v.VerbosityPrinter(verbosity)
+    if vp == None:
+        vp = v.VerbosityPrinter(v.NONE)
 
     vp.low('Running split_cameo_deuintl_2015...')
     
@@ -153,6 +160,66 @@ def split_cameo_deuintl_2015(df_clean,verbosity=v.NONE):
     
     return(df_clean)
 
+def binarize_nan(df,*,cols_nan_to_bin=None,min_value=0,max_value=1,vp=None):
+    '''Binarize data in a dataframe.
+    NaN values take min_value.
+    Non-NaN values are binned into max_value'''
+    
+    if vp == None:
+        vp = v.VerbosityPrinter(v.NONE)
+    
+    vp.low("Running binarize_nan...")
+    
+    if cols_nan_to_bin == None:
+        cols_nan_to_bin = pickler.load('cols_nan_to_bin')
+        
+    for col in cols_nan_to_bin:
+        if col in df.columns:
+            vp.debug(f'binarizing: {col}')
+            df[col] = df[col].apply(lambda x: min_value if math.isnan(x) else max_value)
+            
+    vp.low("Finishing binarize_nan.")
+    
+    return(df)
+
+def standardise_binary_features(df,*,cols_bin=None,min_value=0,max_value=1,vp=None):
+    
+    if vp == None:
+        vp = v.VerbosityPrinter(v.NONE)
+    
+    vp.low('Running standardise_binary_features...')
+    
+    min_max = namedtuple('min_max','min, max')
+    
+    fe_min_max = {
+        'DSL_FLAG': min_max(0,1),
+        'GREEN_AVANTGARDE': min_max(0,1),
+        'HH_DELTA_FLAG': min_max(0,1),
+        'OST_WEST_KZ': min_max('0','W'),
+        'SOHO_KZ': min_max(0,1),
+        'UNGLEICHENN_FLAG': min_max(0,1),
+        'VERS_TYP':min_max(1,2),
+        'ANREDE_KZ': min_max(1,2)
+    }
+    
+    if cols_bin == None:
+        cols_bin = pickler.load('cols_bin')
+        
+    for col in cols_bin:
+        if col in df.columns and col in fe_min_max:
+            vp.debug(f'binarizing: {col}')
+            _min = fe_min_max[col].min
+            _max = fe_min_max[col].max
+            df[col] = df[col].map({_min:min_value,_max:max_value})
+        else:
+            if col not in fe_min_max:
+                vp.none(f'WARNING: {col} not a recognised binary feature and was ignored')
+            if col not in df.columns:
+                vp.low(f'WARNING: {col} not in df and was ignored')
+            
+    vp.low('Finished running standardise_binary_features.')
+    return(df)
+
 
 def etl_pipeline(df,*,cols_keep=None,verbosity=v.NONE):
 
@@ -166,9 +233,11 @@ def etl_pipeline(df,*,cols_keep=None,verbosity=v.NONE):
         cols_keep = pickler.load('cols_keep')
  
     df_clean = df_clean[cols_keep]    
-    df_clean = unknown_to_nan(df_clean,verbosity=verbosity)
-    df_clean = onehot_encode_df(df_clean,verbosity=verbosity)
-    df_clean = split_cameo_deuintl_2015(df_clean,verbosity=verbosity)
+    df_clean = unknown_to_nan(df_clean,vp=vp)
+    df_clean = onehot_encode_df(df_clean,vp=vp)
+    df_clean = split_cameo_deuintl_2015(df_clean,vp=vp)
+    df_clean = binarize_nan(df_clean,vp=vp)
+    df_clean = standardise_binary_features(df_clean,vp=vp)
 
     vp.low('Finished running etl_pipeline.')
 

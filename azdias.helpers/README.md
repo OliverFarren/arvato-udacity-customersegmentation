@@ -2,6 +2,10 @@
 
 This package is a collection of modules developed and used during the Arvato-Udacity Customer Segmentation project.
 
+## clean_df.py
+
+Contains functions that form the Extract-Transform-Load pipeline that cleans the datasets
+
 ## config.py
 
 Contains global variables and directory setup
