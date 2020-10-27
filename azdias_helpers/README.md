@@ -1,6 +1,6 @@
-# azdias.helpers python package
+# azdias_helpers
 
-This package is a collection of modules developed and used during the Arvato-Udacity Customer Segmentation project.
+Collection of modules developed and used during the Arvato-Udacity Customer Segmentation project.
 
 ## clean_df.py
 

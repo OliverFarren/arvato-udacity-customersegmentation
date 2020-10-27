@@ -3,9 +3,12 @@ import pandas as pd
 import math
 from collections import namedtuple
 
-import config
-import verbosity as v
-import pickler
+from . import config
+from . import verbosity as v
+from . import pickler
+
+def _debug():
+    print("Exists")
 
 def unknown_to_nan(df,vp=None):
     '''Takes azdias style dataframe as input and returns with unknowns converted to NaN'''
@@ -55,7 +58,7 @@ def unknown_to_nan(df,vp=None):
     
     if vp == None:
         vp = v.VerbosityPrinter(v.NONE)
-    print(vp)    
+        
     azdias_analysis = pd.read_csv(config.analysis_dir + '/azdias_analysis.csv',sep=',',header=0)
     
     vp.low('Running unknown_to_nan...')
@@ -90,7 +93,7 @@ def onehot_encode(series,*,min_value=0,max_value=1,vp=None):
     
     values = series.dropna().unique()
     
-    vp.high(values)
+    vp.debug(values)
     
     df = pd.DataFrame()
     for value in sorted(values):
@@ -131,33 +134,34 @@ def split_cameo_deuintl_2015(df_clean,*,vp=None):
     
     Returns a dataframe of the two new features
     '''
-    
-    if vp == None:
-        vp = v.VerbosityPrinter(v.NONE)
+    if 'CAMEO_INTL_2015' in df_clean.columns:
 
-    vp.low('Running split_cameo_deuintl_2015...')
-    
-    wealth_col = 'CAMEO_INTL_2015_W'
-    life_stage_col = 'CAMEO_INTL_2015_LS'
-    
-    series = df_clean['CAMEO_INTL_2015'].copy()
-    series = series.replace(['XX'],0)
-    series = series.replace([np.NaN],0)
-    series = series.astype(float)
-    
-    cameo_intl_df = pd.DataFrame()
-    
-    cameo_intl_df[wealth_col] = series.apply(lambda x: math.floor(x/10))
-    cameo_intl_df[life_stage_col] = series.apply(lambda x: x % 10)
-    
-    cameo_intl_df[wealth_col] = cameo_intl_df[wealth_col].replace([0],np.NaN)
-    cameo_intl_df[life_stage_col] = cameo_intl_df[life_stage_col].replace([0],np.NaN)
-    
-    df_clean = pd.concat([df_clean,cameo_intl_df],axis=1)
-    df_clean = df_clean.drop('CAMEO_INTL_2015',axis=1)
-    
-    vp.low('Finished split_cameo_deuintl_2015...')
-    
+        if vp == None:
+            vp = v.VerbosityPrinter(v.NONE)
+
+        vp.low('Running split_cameo_deuintl_2015...')
+        
+        wealth_col = 'CAMEO_INTL_2015_W'
+        life_stage_col = 'CAMEO_INTL_2015_LS'
+        
+        series = df_clean['CAMEO_INTL_2015'].copy()
+        series = series.replace(['XX'],0)
+        series = series.replace([np.NaN],0)
+        series = series.astype(float)
+        
+        cameo_intl_df = pd.DataFrame()
+        
+        cameo_intl_df[wealth_col] = series.apply(lambda x: math.floor(x/10))
+        cameo_intl_df[life_stage_col] = series.apply(lambda x: x % 10)
+        
+        cameo_intl_df[wealth_col] = cameo_intl_df[wealth_col].replace([0],np.NaN)
+        cameo_intl_df[life_stage_col] = cameo_intl_df[life_stage_col].replace([0],np.NaN)
+        
+        df_clean = pd.concat([df_clean,cameo_intl_df],axis=1)
+        df_clean = df_clean.drop('CAMEO_INTL_2015',axis=1)
+        
+        vp.low('Finished split_cameo_deuintl_2015...')
+        
     return(df_clean)
 
 def binarize_nan(df,*,cols_nan_to_bin=None,min_value=0,max_value=1,vp=None):
@@ -215,17 +219,82 @@ def standardise_binary_features(df,*,cols_bin=None,min_value=0,max_value=1,vp=No
         else:
             if col not in fe_min_max:
                 vp.none(f'WARNING: {col} not a recognised binary feature and was ignored')
-            
+           
     vp.low('Finished running standardise_binary_features.')
     return(df)
 
+def drop_sparse_samples(df,max_cols_missing_cutoff,*,vp=None):
+    
+    if vp == None:
+        vp = v.VerbosityPrinter(v.NONE)
+       
+    vp.low('Running drop_sparse_samples.')
+    
+    num_rows = len(df.index)
 
-def remove_string_values():
+    df = df[df.isnull().sum(axis=1)<=max_cols_missing_cutoff]
 
+    if vp.is_med:
+        rows_dropped_perc = math.floor((1-len(df.index)/num_rows)*100)
+        print(f"{rows_dropped_perc}% of rows dropped: {num_rows-len(df.index):,} out of {num_rows:,}")
+        
+    vp.low('Finished running drop_sparse_samples.')
+    
+    return(df)
 
-def 
+def remove_string_values(df,*,vp=None):
 
-def etl_pipeline(df,*,cols_keep=None,verbosity=v.NONE):
+    if vp == None:
+        vp = v.VerbosityPrinter(v.NONE)
+        
+    vp.low('Running remove_string_values...')
+
+    fe_strings = [('CAMEO_DEUG_2015','X')]
+    
+    for fe,string in fe_strings:
+        if fe in df.columns:
+            vp.debug(f' {fe}:{string}')
+            df[fe] = df[fe].replace(string,np.NaN)
+        
+        
+    vp.low('Finished running remove_string_values.')
+
+    return(df)
+
+def bin_features_with_tails(df,*,vp=None):
+    
+    if vp == None:
+        vp = v.VerbosityPrinter(v.NONE)
+    
+    vp.low('Running bin_features_with_tails...')
+    
+    min_max = namedtuple('min_max',['min','max'])
+    
+    features_with_tails = {
+        'ANZ_HAUSHALTE_AKTIV':min_max(None,10),
+        'ANZ_HH_TITEL':min_max(None,1),
+        'ANZ_PERSONEN':min_max(None,5),
+        'ANZ_STATISTISCHE_HAUSHALTE':min_max(None,10),
+        'ANZ_TITEL':min_max(None,1),
+        'VERDICHTUNGSRAUM':min_max(None,7),
+        'EINGEZOGENAM_HH_JAHR':min_max(1993,None)
+    }
+    
+    for fe in features_with_tails:
+        if fe in df.columns:
+            vp.high(fe)
+            _min = features_with_tails[fe].min
+            _max = features_with_tails[fe].max
+            if _min is not None:
+                df[fe] = df[fe].apply(lambda x: x if math.isnan(x) or x > _min else _min)
+            if _max is not None:
+                df[fe] = df[fe].apply(lambda x: x if math.isnan(x) or x < _max else _max)
+                
+    vp.low('Finished running bin_features_with_tails')
+    
+    return(df)
+
+def etl_pipeline(df,*,sparse_feature_cutoff=1,cols_keep=None,verbosity=v.NONE):
 
     vp = v.VerbosityPrinter(verbosity)
     
@@ -233,6 +302,8 @@ def etl_pipeline(df,*,cols_keep=None,verbosity=v.NONE):
     
     df_clean = df.copy()
     
+    max_sparse_features = math.floor(len(df.columns)*sparse_feature_cutoff)
+
     if cols_keep == None:
         cols_keep = pickler.load('cols_keep')
  
@@ -243,8 +314,12 @@ def etl_pipeline(df,*,cols_keep=None,verbosity=v.NONE):
     df_clean = remove_string_values(df_clean,vp=vp)
     df_clean = binarize_nan(df_clean,vp=vp)
     df_clean = standardise_binary_features(df_clean,vp=vp)
-    df_clean = bin_features_with-tails(df_clean,vp=vp)
+    df_clean = bin_features_with_tails(df_clean,vp=vp)
+    df_clean = drop_sparse_samples(df_clean,max_sparse_features,vp=vp)
+
     vp.low('Finished running etl_pipeline.')
+
+    vp.med(f'\ndf shape before:{df.shape}, after:{df_clean.shape}')
 
     return(df_clean)
 

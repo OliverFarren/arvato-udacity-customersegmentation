@@ -2,7 +2,7 @@
 '''
 Utility functions to assist pickling objects
 '''
-import config
+from . import config
 import pickle
 
 def make_file_path(filename):
