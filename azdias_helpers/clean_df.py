@@ -199,7 +199,7 @@ def standardise_binary_features(df,*,cols_bin=None,min_value=0,max_value=1,vp=No
         'DSL_FLAG': min_max(0,1),
         'GREEN_AVANTGARDE': min_max(0,1),
         'HH_DELTA_FLAG': min_max(0,1),
-        'OST_WEST_KZ': min_max('0','W'),
+        'OST_WEST_KZ': min_max('O','W'),
         'SOHO_KZ': min_max(0,1),
         'UNGLEICHENN_FLAG': min_max(0,1),
         'VERS_TYP':min_max(1,2),
@@ -207,10 +207,8 @@ def standardise_binary_features(df,*,cols_bin=None,min_value=0,max_value=1,vp=No
         'KONSUMZELLE':min_max(0,1)
     }
     
-    if cols_bin == None:
-        cols_bin = pickler.load('cols_bin')
         
-    for col in cols_bin:
+    for col in fe_min_max:
         if col in df.columns and col in fe_min_max:
             vp.debug(f'binarizing: {col}')
             _min = fe_min_max[col].min
@@ -277,7 +275,8 @@ def bin_features_with_tails(df,*,vp=None):
         'ANZ_STATISTISCHE_HAUSHALTE':min_max(None,10),
         'ANZ_TITEL':min_max(None,1),
         'VERDICHTUNGSRAUM':min_max(None,7),
-        'EINGEZOGENAM_HH_JAHR':min_max(1993,None)
+        'EINGEZOGENAM_HH_JAHR':min_max(1993,None),
+        'ALTERSKATEGORIE_GROB':min_max(None,4)
     }
     
     for fe in features_with_tails:

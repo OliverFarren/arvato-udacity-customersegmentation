@@ -7,3 +7,5 @@ Udacity_MAILOUT_052018_TEST.csv
 Udacity_MAILOUT_052018_TRAIN.csv
 analysis
 datasets
+azdias_helpers/__pycache__/*
+azdias_helpers/__pycache__
