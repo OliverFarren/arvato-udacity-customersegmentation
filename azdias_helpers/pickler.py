@@ -4,6 +4,10 @@ Utility functions to assist pickling objects
 '''
 from . import config
 import pickle
+import os
+
+def isfile(filename):
+    return(os.path.isfile(make_file_path(filename)))
 
 def make_file_path(filename):
     return(config.dataset_dir + '/'+filename+'.pickle')
