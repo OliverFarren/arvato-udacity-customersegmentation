@@ -3,9 +3,12 @@ import pandas as pd
 import math
 from collections import namedtuple
 
+from sklearn.decomposition import PCA
+
 from . import config
 from . import verbosity as v
 from . import pickler
+from . import utils as u
 
 def _debug():
     print("Exists")
@@ -322,3 +325,137 @@ def etl_pipeline(df,*,sparse_feature_cutoff=1,cols_keep=None,verbosity=v.NONE):
 
     return(df_clean)
 
+
+def make_imputer(df,verbosity=v.NONE):
+
+    vp = v.VerbosityPrinter(verbosity)
+
+    vp.low(f'Running  {u.func_name()}...')
+
+    imputer = config.imputer
+    imputer.fit(df)
+
+    pickler.dump(imputer,config.imputer_name)
+
+    vp.low(f'Finished running {u.func_name()}.')
+
+def make_scaler(df,verbosity=v.NONE):
+
+    vp = v.VerbosityPrinter(verbosity)
+
+    vp.low(f'Running  {u.func_name()}...')
+
+    scaler = config.scaler
+    scaler.fit(df)
+
+    pickler.dump(scaler,config.scaler_name)
+
+    vp.low(f'Finished running {u.func_name()}.')
+
+def make_pca(df,pca_variance=0.7,verbosity=v.NONE):
+
+    vp = v.VerbosityPrinter(verbosity)
+
+    vp.low(f'Running  {u.func_name()}...')
+
+    pca = PCA()
+    pca.fit(df)
+
+    n_components = np.searchsorted(np.cumsum(pca.explained_variance_ratio_),pca_variance)
+    vp.high(f'Number of Principle components:{n_components}')
+
+    pca = PCA(n_components)
+    pca.fit(df)
+
+    pickler.dump(pca,config.pca_name)
+
+    vp.low(f'Finished running {u.func_name()}.')
+
+
+def _model_transform(df,model_pickle_name):
+
+    cols = df.columns
+
+    model = pickler.load(model_pickle_name)
+    X = model.transform(df)
+
+    if (X.shape[1] == len(cols)):
+        df = pd.DataFrame(X,columns=cols)
+    else:
+        df = pd.DataFrame(X)
+    
+    return(df)
+    
+
+def impute_df(df,verbosity=v.NONE):
+
+    vp = v.VerbosityPrinter(verbosity)
+
+    vp.low(f'Running  {u.func_name()}...')
+
+    df = _model_transform(df,config.imputer_name)
+
+    vp.low(f'Finished running {u.func_name()}.')
+
+    return(df)
+
+def scale_df(df,verbosity=v.NONE):
+
+    vp = v.VerbosityPrinter(verbosity)
+
+    vp.low(f'Running  {u.func_name()}...')
+
+    df = _model_transform(df,config.scaler_name)
+
+    vp.low(f'Finished running {u.func_name()}.')    
+
+    return(df)
+
+def pca_df(df,verbosity=v.NONE):
+
+    vp = v.VerbosityPrinter(verbosity)
+
+    vp.low(f'Running  {u.func_name()}...')
+
+    df = _model_transform(df,config.pca_name)
+
+    vp.low(f'Finished running {u.func_name()}.')    
+
+    return(df)
+
+def make_imputer_scaler_pca(df,pca_variance=0.7,verbosity=v.NONE):
+
+    vp = v.VerbosityPrinter(verbosity)
+
+    vp.low(f'Running  {u.func_name()}...')
+
+    make_imputer(df,verbosity)
+    df = impute_df(df,verbosity)
+
+    make_scaler(df,verbosity)
+    df = scale_df(df,verbosity)
+
+    make_pca(df,pca_variance,verbosity)
+
+    vp.low(f'Finished running {u.func_name()}.')    
+
+def impute_scale_pca_df(df,verbosity=v.NONE):
+
+    vp = v.VerbosityPrinter(verbosity)
+
+    if vp.is_med:
+        df_orig = df.copy()
+
+    vp.low(f'Running  {u.func_name()}...')
+    
+    df = impute_df(df,verbosity)
+    df = scale_df(df,verbosity)
+    df = pca_df(df,verbosity)
+
+
+    vp.low(f'Finished running {u.func_name()}.')    
+
+    if vp.is_med:
+        vp.med(f'\ndf shape before:{df_orig.shape}, after:{df.shape}')
+
+    return(df)
